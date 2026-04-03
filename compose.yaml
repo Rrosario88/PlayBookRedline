@@ -4,15 +4,14 @@ services:
       context: ./server
     environment:
       PORT: 3001
-      CORS_ORIGIN: http://localhost:8080
+      CORS_ORIGIN: https://playbookredline.187-124-249-117.sslip.io,http://localhost:5173,http://localhost:8080
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-    ports:
-      - "3001:3001"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 20s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   client:
     build:
@@ -20,5 +19,24 @@ services:
     depends_on:
       server:
         condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8-alpine
+    depends_on:
+      server:
+        condition: service_healthy
+      client:
+        condition: service_started
     ports:
-      - "8080:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

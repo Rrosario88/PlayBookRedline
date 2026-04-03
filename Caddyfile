@@ -1,0 +1,16 @@
+playbookredline.187-124-249-117.sslip.io {
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    }
+
+    @api path /api/*
+    reverse_proxy @api server:3001
+
+    reverse_proxy client:80
+}

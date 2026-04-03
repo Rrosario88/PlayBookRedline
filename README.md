@@ -10,7 +10,7 @@ AI-powered contract review and redlining for lawyers.
 PlayBookRedline lets a legal team upload a contract plus a negotiation playbook, then generates a clause-by-clause review with risk scoring, playbook references, suggested redlines, and a Word export with tracked changes.
 
 Live VPS preview:
-- http://187.124.249.117:8080
+- https://playbookredline.187-124-249-117.sslip.io
 
 ## Screenshots
 
@@ -58,6 +58,11 @@ Backend
 - `docx` for Word export
 - `diff` for granular tracked redlines
 
+Infrastructure
+- Docker Compose
+- Caddy reverse proxy
+- Automatic HTTPS via Let's Encrypt using `sslip.io`
+
 ## How it works
 1. User uploads a contract and a playbook.
 2. The backend extracts text from PDF/DOCX files.
@@ -86,6 +91,8 @@ server/
   sample/
 .github/
   workflows/
+docs/assets/
+Caddyfile
 compose.yaml
 ```
 
@@ -116,9 +123,9 @@ Run the whole stack:
 docker compose up --build
 ```
 
-Open:
-- App: http://localhost:8080
-- API health: http://localhost:3001/api/health
+Open locally:
+- HTTPS app: https://playbookredline.187-124-249-117.sslip.io
+- Local API health inside compose is proxied through the site under `/api/health`
 
 ## Environment variables
 Create a root `.env` or export variables before starting:
@@ -126,7 +133,7 @@ Create a root `.env` or export variables before starting:
 ```bash
 ANTHROPIC_API_KEY=your_key_here
 PORT=3001
-CORS_ORIGIN=http://localhost:5173,http://localhost:8080
+CORS_ORIGIN=https://playbookredline.187-124-249-117.sslip.io,http://localhost:5173,http://localhost:8080
 ```
 
 Notes:
@@ -134,10 +141,12 @@ Notes:
 - The export engine still produces a valid redline workflow without Claude, but the legal analysis quality is best with the model enabled.
 
 ## Security and deployment notes
+- Only ports 80 and 443 are exposed publicly
+- Backend is no longer directly published to the internet
+- Caddy terminates TLS and proxies traffic internally
 - Helmet enabled on the API
 - Compression enabled, with SSE-safe exclusions
 - Basic API rate limiting enabled
-- nginx reverse proxy included for the client container
 - CI workflow builds both client and server, plus Docker compose build validation
 - Branch protection configured on `main`
 - Dependabot and automated security fixes enabled
@@ -149,7 +158,7 @@ Notes:
 - More precise clause segmentation for complex agreements
 - Matter/workspace history and saved analyses
 - Authentication and team collaboration
-- Custom domain + TLS for public deployment
+- Custom domain + managed DNS instead of `sslip.io`
 - More granular legal diffing rules for defined terms and numbering
 
 ## Contributing
