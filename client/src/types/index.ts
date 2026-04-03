@@ -37,6 +37,7 @@ export interface User {
   id: number;
   email: string;
   role: 'user' | 'admin';
+  emailVerifiedAt: string | null;
 }
 
 export interface SavedMatterSummary {
@@ -46,7 +47,7 @@ export interface SavedMatterSummary {
   playbook_name: string | null;
   retention_days: number;
   delete_after: string;
-  retain_source_files: number;
+  retain_source_files: boolean | number;
   created_at: string;
 }
 

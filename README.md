@@ -26,6 +26,9 @@ Live VPS preview:
 ### Admin dashboard
 ![Admin dashboard](docs/assets/admin-dashboard.png)
 
+### Invite-only onboarding flow
+![Invite-only onboarding flow](docs/assets/admin-invite-flow.png)
+
 ## Why this exists
 Lawyers often review third-party paper against internal fallback positions, preferred terms, and red-flag clauses. That process is repetitive, time-sensitive, and difficult to standardize across a team.
 
@@ -44,6 +47,9 @@ PlayBookRedline turns a firm playbook into an interactive review workflow:
 - Inline editing of suggested redline language
 - Sample NDA + playbook demo mode
 - PostgreSQL-backed authentication with user/admin roles
+- Invite-only user creation managed by admins
+- Email verification flow with verification links
+- Password reset flow with reset links
 - Saved matters with explicit 7/30/90-day retention controls
 - Admin dashboard for inspecting users and retained matters
 - Automated cron-based PostgreSQL backups and expired-matter cleanup
