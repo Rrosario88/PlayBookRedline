@@ -20,6 +20,9 @@ Live VPS preview:
 ### Sample demo results
 ![Sample demo results](docs/assets/sample-demo-results.png)
 
+### Authenticated saved matter workflow
+![Authenticated saved matter workflow](docs/assets/auth-saved-matter.png)
+
 ## Why this exists
 Lawyers often review third-party paper against internal fallback positions, preferred terms, and red-flag clauses. That process is repetitive, time-sensitive, and difficult to standardize across a team.
 
@@ -37,6 +40,8 @@ PlayBookRedline turns a firm playbook into an interactive review workflow:
 - Playbook reference for each flagged clause
 - Inline editing of suggested redline language
 - Sample NDA + playbook demo mode
+- SQLite-backed authentication with user/admin roles
+- Saved matters with explicit 7/30/90-day retention controls
 - DOCX export with real Word revision markup (`w:ins` / `w:del`)
 - Dockerized deployment path for app + API
 

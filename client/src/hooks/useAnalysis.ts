@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { AnalysisResult, Clause, DemoPayload, ProgressState } from '../types';
+import type { AnalysisResult, Clause, DemoPayload, ProgressState, SavedMatter } from '../types';
 
 const parseSse = (chunk: string) => {
   const blocks = chunk.split('\n\n').filter(Boolean);
@@ -31,12 +31,19 @@ export const useAnalysis = () => {
     setResults((current) => current.map((result) => (result.id === id ? { ...result, suggestedRedline: value } : result)));
   }, []);
 
+  const hydrateMatter = useCallback((matter: SavedMatter) => {
+    setClauses(matter.clauses);
+    setResults(matter.analyses);
+    setContractName(matter.contractName || matter.name);
+    setPlaybookName(matter.playbookName || 'Saved playbook');
+    setProgress(null);
+    setError(null);
+  }, []);
+
   const loadDemo = useCallback(async () => {
     setError(null);
-    const response = await fetch('/api/demo');
-    if (!response.ok) {
-      throw new Error('Failed to load sample demo.');
-    }
+    const response = await fetch('/api/demo', { credentials: 'include' });
+    if (!response.ok) throw new Error('Failed to load sample demo.');
     const payload = (await response.json()) as DemoPayload;
     setDemo(payload);
     setUseDemo(true);
@@ -61,7 +68,6 @@ export const useAnalysis = () => {
     }
 
     setIsAnalyzing(true);
-
     try {
       const form = new FormData();
       if (useDemo) {
@@ -71,10 +77,8 @@ export const useAnalysis = () => {
         form.append('playbook', playbookFile as File);
       }
 
-      const response = await fetch('/api/analyze', { method: 'POST', body: form });
-      if (!response.ok || !response.body) {
-        throw new Error('Analysis request failed.');
-      }
+      const response = await fetch('/api/analyze', { method: 'POST', body: form, credentials: 'include' });
+      if (!response.ok || !response.body) throw new Error('Analysis request failed.');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -96,9 +100,7 @@ export const useAnalysis = () => {
               setPlaybookName(payload.playbookName);
               setProgress({ completed: 0, total: payload.totalClauses, message: `Analyzing clause 1 of ${payload.totalClauses}…` });
             }
-            if (event.event === 'progress') {
-              setProgress(payload);
-            }
+            if (event.event === 'progress') setProgress(payload);
             if (event.event === 'clause') {
               setResults((current) => {
                 const next = current.filter((item) => item.id !== payload.id);
@@ -106,9 +108,7 @@ export const useAnalysis = () => {
                 return next;
               });
             }
-            if (event.event === 'error') {
-              throw new Error(payload.message);
-            }
+            if (event.event === 'error') throw new Error(payload.message);
           }
         }
       }
@@ -128,6 +128,7 @@ export const useAnalysis = () => {
     const response = await fetch('/api/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ contractName, clauses, analyses: orderedResults }),
     });
 
@@ -166,5 +167,6 @@ export const useAnalysis = () => {
     exportDocx,
     loadDemo,
     resetDemo,
+    hydrateMatter,
   };
 };

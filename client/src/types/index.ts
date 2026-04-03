@@ -32,3 +32,38 @@ export interface ProgressState {
   total: number;
   message: string;
 }
+
+export interface User {
+  id: number;
+  email: string;
+  role: 'user' | 'admin';
+}
+
+export interface SavedMatterSummary {
+  id: number;
+  name: string;
+  contract_name: string | null;
+  playbook_name: string | null;
+  retention_days: number;
+  delete_after: string;
+  retain_source_files: number;
+  created_at: string;
+}
+
+export interface SavedMatter {
+  id: number;
+  name: string;
+  contractName?: string;
+  playbookName?: string;
+  retentionDays: number;
+  deleteAfter: string;
+  retainSourceFiles: boolean;
+  createdAt: string;
+  clauses: Clause[];
+  analyses: AnalysisResult[];
+}
+
+export interface LegalDoc {
+  title: string;
+  content: string;
+}

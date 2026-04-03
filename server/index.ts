@@ -1,14 +1,19 @@
 import compression from "compression";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import authRoutes from "./routes/auth.js";
 import analyzeRoutes from "./routes/analyze.js";
 import exportRoutes from "./routes/export.js";
+import legalRoutes from "./routes/legal.js";
+import mattersRoutes from "./routes/matters.js";
+import "./services/db.js";
 
 const app = express();
 const port = Number(process.env.PORT || 3001);
-const defaultOrigins = ["http://localhost:5173", "http://localhost:8080"];
+const defaultOrigins = ["http://localhost:5173", "http://localhost:8080", "https://playbookredline.187-124-249-117.sslip.io"];
 const corsOrigin = process.env.CORS_ORIGIN?.split(",").map((entry) => entry.trim()).filter(Boolean) ?? defaultOrigins;
 
 app.disable("x-powered-by");
@@ -24,7 +29,7 @@ app.use(
     },
   }),
 );
-app.use(cors({ origin: corsOrigin }));
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -33,12 +38,16 @@ app.use(
     legacyHeaders: false,
   }),
 );
+app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "PlaybookRedline API" });
 });
 
+app.use("/api", authRoutes);
+app.use("/api", legalRoutes);
+app.use("/api", mattersRoutes);
 app.use("/api", analyzeRoutes);
 app.use("/api", exportRoutes);
 
