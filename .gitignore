@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+coverage/
+playwright-report/
+client/dist/
+server/dist/
+*.png
+*.docx
