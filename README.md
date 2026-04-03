@@ -166,3 +166,15 @@ Issues and pull requests are welcome. Please include clear reproduction steps, e
 
 ## License
 MIT
+
+
+## Privacy and retention
+A privacy-first retention model is documented in:
+- [Privacy and Data Retention Policy](PRIVACY.md)
+
+Current default behavior:
+- uploaded files are processed in memory
+- original files are not intentionally persisted by default
+- extracted text and analysis results are not intentionally stored server-side by default
+- exported DOCX files are generated in memory and returned to the client
+- if Anthropic is enabled, legal text may be sent to Anthropic for inference
