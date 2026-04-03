@@ -1,8 +1,24 @@
 # PlayBookRedline
 
+[![CI](https://github.com/Rrosario88/PlayBookRedline/actions/workflows/ci.yml/badge.svg)](https://github.com/Rrosario88/PlayBookRedline/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Rrosario88/PlayBookRedline)](https://github.com/Rrosario88/PlayBookRedline/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Dependabot enabled](https://img.shields.io/badge/dependabot-enabled-025E8C)](https://github.com/Rrosario88/PlayBookRedline/security/dependabot)
+
 AI-powered contract review and redlining for lawyers.
 
 PlayBookRedline lets a legal team upload a contract plus a negotiation playbook, then generates a clause-by-clause review with risk scoring, playbook references, suggested redlines, and a Word export with tracked changes.
+
+Live VPS preview:
+- http://187.124.249.117:8080
+
+## Screenshots
+
+### Analysis workspace
+![Analysis workspace](docs/assets/analysis-workspace.png)
+
+### Sample demo results
+![Sample demo results](docs/assets/sample-demo-results.png)
 
 ## Why this exists
 Lawyers often review third-party paper against internal fallback positions, preferred terms, and red-flag clauses. That process is repetitive, time-sensitive, and difficult to standardize across a team.
@@ -124,6 +140,7 @@ Notes:
 - nginx reverse proxy included for the client container
 - CI workflow builds both client and server, plus Docker compose build validation
 - Branch protection configured on `main`
+- Dependabot and automated security fixes enabled
 
 ## Current release
 - Latest release: `v0.1.0`
@@ -132,11 +149,11 @@ Notes:
 - More precise clause segmentation for complex agreements
 - Matter/workspace history and saved analyses
 - Authentication and team collaboration
-- Real deployed homepage instead of localhost metadata
+- Custom domain + TLS for public deployment
 - More granular legal diffing rules for defined terms and numbering
 
 ## Contributing
 Issues and pull requests are welcome. Please include clear reproduction steps, expected behavior, and screenshots when relevant.
 
 ## License
-No license file has been added yet. Add one before broad reuse or commercial distribution.
+MIT

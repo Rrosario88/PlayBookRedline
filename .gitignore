@@ -14,5 +14,6 @@ tmp/
 uploads/
 *.png
 *.docx
+!docs/assets/*.png
 .vscode/
 .idea/
