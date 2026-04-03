@@ -13,6 +13,7 @@ server/dist/
 tmp/
 uploads/
 server/data/
+.backup-db/
 *.png
 *.docx
 !docs/assets/*.png
