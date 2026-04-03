@@ -1,5 +1,6 @@
 import { FileStack, LoaderCircle, Scale, ShieldAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { AdminPanel } from './components/AdminPanel';
 import { AnalysisTable } from './components/AnalysisTable';
 import { AuthPanel } from './components/AuthPanel';
 import { ExportButton } from './components/ExportButton';
@@ -104,6 +105,7 @@ function App() {
           )}
 
           <SavedMattersPanel user={user} contractName={contractName} playbookName={playbookName} clauses={clauses} analyses={results} onLoadMatter={hydrateMatter} />
+          <AdminPanel user={user} />
 
           {results.length > 0 && (
             <>

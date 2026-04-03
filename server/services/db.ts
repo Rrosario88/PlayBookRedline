@@ -1,39 +1,38 @@
-import Database from "better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
+import { Pool } from "pg";
 
-const dataDir = path.resolve(process.cwd(), "data");
-fs.mkdirSync(dataDir, { recursive: true });
-const dbPath = path.join(dataDir, "playbookredline.db");
-export const db = new Database(dbPath);
-db.pragma("journal_mode = WAL");
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://playbookredline:playbookredline@postgres:5432/playbookredline";
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user',
-    created_at TEXT NOT NULL
-  );
+export const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" && !DATABASE_URL.includes("postgres:") ? { rejectUnauthorized: false } : false,
+});
 
-  CREATE TABLE IF NOT EXISTS matters (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    contract_name TEXT,
-    playbook_name TEXT,
-    clauses_json TEXT NOT NULL,
-    analyses_json TEXT NOT NULL,
-    retention_days INTEGER NOT NULL,
-    delete_after TEXT NOT NULL,
-    retain_source_files INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL,
-    FOREIGN KEY(user_id) REFERENCES users(id)
-  );
-`);
+export const initDb = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      created_at TIMESTAMPTZ NOT NULL
+    );
 
-export const pruneExpiredMatters = () => {
-  const now = new Date().toISOString();
-  db.prepare("DELETE FROM matters WHERE delete_after <= ?").run(now);
+    CREATE TABLE IF NOT EXISTS matters (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      contract_name TEXT,
+      playbook_name TEXT,
+      clauses_json JSONB NOT NULL,
+      analyses_json JSONB NOT NULL,
+      retention_days INTEGER NOT NULL,
+      delete_after TIMESTAMPTZ NOT NULL,
+      retain_source_files BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL
+    );
+  `);
+};
+
+export const pruneExpiredMatters = async () => {
+  await pool.query("DELETE FROM matters WHERE delete_after <= NOW()");
 };

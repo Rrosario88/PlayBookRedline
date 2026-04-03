@@ -14,6 +14,8 @@ tmp/
 uploads/
 server/data/
 .backup-db/
+.backup-sqlite/
+backups/
 *.png
 *.docx
 !docs/assets/*.png

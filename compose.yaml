@@ -1,4 +1,19 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: playbookredline
+      POSTGRES_USER: playbookredline
+      POSTGRES_PASSWORD: playbookredline
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U playbookredline -d playbookredline"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   server:
     build:
       context: ./server
@@ -6,8 +21,11 @@ services:
       PORT: 3001
       CORS_ORIGIN: https://playbookredline.187-124-249-117.sslip.io,http://localhost:5173,http://localhost:8080
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-    volumes:
-      - server_data:/app/data
+      DATABASE_URL: postgresql://playbookredline:playbookredline@postgres:5432/playbookredline
+      JWT_SECRET: ${JWT_SECRET:-playbookredline-dev-secret-change-me}
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 20s
@@ -40,6 +58,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  server_data:
+  postgres_data:
   caddy_data:
   caddy_config:
