@@ -1,61 +1,142 @@
-# PlaybookRedline
+# PlayBookRedline
 
-AI-powered contract review and redlining tool for legal teams.
+AI-powered contract review and redlining for lawyers.
 
-## Stack
-- Client: React + Vite + TypeScript + Tailwind CSS
-- Server: Node.js + Express + TypeScript
-- LLM: Anthropic Claude (`claude-sonnet-4-20250514`)
-- Document parsing: `mammoth`, `pdf-parse`
-- DOCX generation: `docx` with Word tracked revisions
-- Containers: Docker + Docker Compose
+PlayBookRedline lets a legal team upload a contract plus a negotiation playbook, then generates a clause-by-clause review with risk scoring, playbook references, suggested redlines, and a Word export with tracked changes.
 
-## Features
-- Upload contract and playbook in PDF or DOCX format
-- Clause-by-clause SSE streaming analysis
-- Sortable and filterable risk table
-- Inline editable redlines
-- Sample NDA + playbook demo
-- Word export with granular tracked changes using revision markup (`w:ins` / `w:del`)
-- Basic production hardening via Helmet, compression, rate limiting, nginx, and CI
+## Why this exists
+Lawyers often review third-party paper against internal fallback positions, preferred terms, and red-flag clauses. That process is repetitive, time-sensitive, and difficult to standardize across a team.
 
-## Run locally
+PlayBookRedline turns a firm playbook into an interactive review workflow:
+- upload a contract
+- upload the firm playbook
+- analyze every clause against preferred / fallback / red-flag guidance
+- edit the AI redlines inline
+- export a tracked-change DOCX for negotiation
 
-### Server
+## Core features
+- PDF and DOCX upload for both contract and playbook
+- Clause-by-clause analysis streamed live to the UI with SSE
+- Risk scoring per clause: green / yellow / red
+- Playbook reference for each flagged clause
+- Inline editing of suggested redline language
+- Sample NDA + playbook demo mode
+- DOCX export with real Word revision markup (`w:ins` / `w:del`)
+- Dockerized deployment path for app + API
+
+## Tech stack
+Frontend
+- React
+- Vite
+- TypeScript
+- Tailwind CSS
+- Recharts
+
+Backend
+- Node.js
+- Express
+- TypeScript
+- Anthropic Claude (`claude-sonnet-4-20250514`)
+- `mammoth` for DOCX parsing
+- `pdf-parse` for PDF extraction
+- `docx` for Word export
+- `diff` for granular tracked redlines
+
+## How it works
+1. User uploads a contract and a playbook.
+2. The backend extracts text from PDF/DOCX files.
+3. The contract is split into clauses using heading and numbering heuristics.
+4. Each clause is compared against the full playbook.
+5. Results stream back progressively to the frontend.
+6. The user edits proposed redlines if needed.
+7. The system exports a DOCX with tracked changes.
+
+## Risk model
+- Green: clause matches preferred position
+- Yellow: clause is acceptable only under fallback position
+- Red: clause violates the playbook or contains red-flag language
+
+## Project structure
+```text
+client/
+  src/
+    components/
+    hooks/
+    types/
+server/
+  routes/
+  services/
+  prompts/
+  sample/
+.github/
+  workflows/
+compose.yaml
+```
+
+## Local development
+### 1) Backend
 ```bash
 cd server
-cp ../.env.example .env
 npm install
 npm run dev
 ```
 
-### Client
+### 2) Frontend
 ```bash
 cd client
 npm install
 npm run dev
 ```
 
-The Vite app proxies `/api` requests to `http://localhost:3001`.
+Frontend runs on:
+- http://localhost:5173
 
-## Run with Docker
+Backend runs on:
+- http://localhost:3001
+
+## Docker
+Run the whole stack:
 ```bash
 docker compose up --build
 ```
 
-Then open:
+Open:
 - App: http://localhost:8080
-- API: http://localhost:3001/api/health
+- API health: http://localhost:3001/api/health
 
-## Environment
-Create `.env` from `.env.example` at the project root or export env vars before running.
+## Environment variables
+Create a root `.env` or export variables before starting:
 
-Supported variables:
-- `ANTHROPIC_API_KEY` — optional; enables Claude analysis
-- `PORT` — backend port (default `3001`)
-- `CORS_ORIGIN` — comma-separated allowed origins for backend
+```bash
+ANTHROPIC_API_KEY=your_key_here
+PORT=3001
+CORS_ORIGIN=http://localhost:5173,http://localhost:8080
+```
 
-## Notes
-- If `ANTHROPIC_API_KEY` is not set, the app falls back to deterministic heuristic analysis for local demos.
-- Export now applies tracked changes at a granular word/phrase level within each clause instead of replacing the entire clause.
-- CI workflow builds both client and server on push and pull request.
+Notes:
+- If `ANTHROPIC_API_KEY` is not set, the app falls back to deterministic heuristic analysis for demo/local usage.
+- The export engine still produces a valid redline workflow without Claude, but the legal analysis quality is best with the model enabled.
+
+## Security and deployment notes
+- Helmet enabled on the API
+- Compression enabled, with SSE-safe exclusions
+- Basic API rate limiting enabled
+- nginx reverse proxy included for the client container
+- CI workflow builds both client and server, plus Docker compose build validation
+- Branch protection configured on `main`
+
+## Current release
+- Latest release: `v0.1.0`
+
+## Roadmap ideas
+- More precise clause segmentation for complex agreements
+- Matter/workspace history and saved analyses
+- Authentication and team collaboration
+- Real deployed homepage instead of localhost metadata
+- More granular legal diffing rules for defined terms and numbering
+
+## Contributing
+Issues and pull requests are welcome. Please include clear reproduction steps, expected behavior, and screenshots when relevant.
+
+## License
+No license file has been added yet. Add one before broad reuse or commercial distribution.
