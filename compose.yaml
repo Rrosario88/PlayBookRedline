@@ -21,7 +21,10 @@ services:
       PORT: 3001
       CORS_ORIGIN: https://playbookredline.187-124-249-117.sslip.io,http://localhost:5173,http://localhost:8080
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-sonnet-4}
       DATABASE_URL: postgresql://playbookredline:playbookredline@postgres:5432/playbookredline
+      APP_URL: ${APP_URL:-https://playbookredline.187-124-249-117.sslip.io}
       JWT_SECRET: ${JWT_SECRET:-playbookredline-dev-secret-change-me}
     depends_on:
       postgres:

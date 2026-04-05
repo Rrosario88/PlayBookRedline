@@ -1,10 +1,13 @@
 import { Router } from "express";
 import { requireAuth, attachUser, type AuthenticatedRequest } from "../middleware/auth.js";
+import { ensureCsrfCookie, requireCsrf } from "../middleware/csrf.js";
 import { pool, pruneExpiredMatters } from "../services/db.js";
 
 const router = Router();
 router.use(attachUser);
+router.use(ensureCsrfCookie);
 router.use(requireAuth);
+router.use(requireCsrf);
 
 router.get("/matters", async (req: AuthenticatedRequest, res) => {
   await pruneExpiredMatters();

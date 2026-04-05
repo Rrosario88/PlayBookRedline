@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { apiFetch } from '../lib/api';
 import type { User } from '../types';
-
-const apiFetch = async (input: string, init?: RequestInit) => {
-  const response = await fetch(input, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-    ...init,
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.message || 'Request failed.');
-  return payload;
-};
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);

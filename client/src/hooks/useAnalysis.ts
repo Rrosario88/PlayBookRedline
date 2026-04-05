@@ -1,12 +1,17 @@
 import { useCallback, useMemo, useState } from 'react';
+import { apiFetchRaw } from '../lib/api';
 import type { AnalysisResult, Clause, DemoPayload, ProgressState, SavedMatter } from '../types';
 
 const parseSse = (chunk: string) => {
   const blocks = chunk.split('\n\n').filter(Boolean);
   return blocks
     .map((block) => {
-      const event = block.split('\n').find((line) => line.startsWith('event:'))?.replace('event:', '').trim();
-      const data = block.split('\n').find((line) => line.startsWith('data:'))?.replace('data:', '').trim();
+      const lines = block.split('\n');
+      const event = lines.find((line) => line.startsWith('event:'))?.replace('event:', '').trim();
+      const data = lines
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.replace('data:', '').trim())
+        .join('\n');
       return event && data ? { event, data } : null;
     })
     .filter(Boolean) as { event: string; data: string }[];
@@ -77,39 +82,65 @@ export const useAnalysis = () => {
         form.append('playbook', playbookFile as File);
       }
 
-      const response = await fetch('/api/analyze', { method: 'POST', body: form, credentials: 'include' });
-      if (!response.ok || !response.body) throw new Error('Analysis request failed.');
+      const response = await apiFetchRaw('/api/analyze', { method: 'POST', body: form });
+      if (!response.ok || !response.body) {
+        const payload = await response.json().catch(() => ({ message: 'Analysis request failed.' }));
+        throw new Error(payload.message || 'Analysis request failed.');
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
 
+      const handleEvents = (rawChunk: string) => {
+        for (const event of parseSse(rawChunk)) {
+          const payload = JSON.parse(event.data);
+          if (event.event === 'metadata') {
+            setClauses(payload.clauses);
+            setContractName(payload.contractName);
+            setPlaybookName(payload.playbookName);
+            setProgress({ completed: 0, total: payload.totalClauses, message: `Analyzing clause 1 of ${payload.totalClauses}…` });
+          }
+          if (event.event === 'progress') setProgress(payload);
+          if (event.event === 'clause') {
+            setResults((current) => {
+              const next = current.filter((item) => item.id !== payload.id);
+              next.push(payload);
+              return next;
+            });
+          }
+          if (event.event === 'complete') {
+            setClauses(payload.clauses);
+            setContractName(payload.contractName);
+            setPlaybookName(payload.playbookName);
+            if (Array.isArray(payload.results)) {
+              setResults(payload.results);
+              setProgress({
+                completed: payload.results.length,
+                total: payload.results.length,
+                message: `Analysis complete — ${payload.results.length} clauses reviewed.`,
+              });
+            }
+          }
+          if (event.event === 'error') throw new Error(payload.message);
+        }
+      };
+
       while (true) {
         const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
         const parts = buffer.split('\n\n');
         buffer = parts.pop() ?? '';
 
         for (const part of parts) {
-          for (const event of parseSse(`${part}\n\n`)) {
-            const payload = JSON.parse(event.data);
-            if (event.event === 'metadata') {
-              setClauses(payload.clauses);
-              setContractName(payload.contractName);
-              setPlaybookName(payload.playbookName);
-              setProgress({ completed: 0, total: payload.totalClauses, message: `Analyzing clause 1 of ${payload.totalClauses}…` });
-            }
-            if (event.event === 'progress') setProgress(payload);
-            if (event.event === 'clause') {
-              setResults((current) => {
-                const next = current.filter((item) => item.id !== payload.id);
-                next.push(payload);
-                return next;
-              });
-            }
-            if (event.event === 'error') throw new Error(payload.message);
+          handleEvents(`${part}\n\n`);
+        }
+
+        if (done) {
+          if (buffer.trim()) {
+            handleEvents(`${buffer}${buffer.endsWith('\n\n') ? '' : '\n\n'}`);
           }
+          break;
         }
       }
     } catch (err) {
@@ -125,10 +156,8 @@ export const useAnalysis = () => {
       return;
     }
 
-    const response = await fetch('/api/export', {
+    const response = await apiFetchRaw('/api/export', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ contractName, clauses, analyses: orderedResults }),
     });
 
@@ -145,6 +174,19 @@ export const useAnalysis = () => {
     anchor.click();
     URL.revokeObjectURL(url);
   }, [clauses, orderedResults, contractName]);
+
+  const resetWorkspace = useCallback(() => {
+    setContractFile(null);
+    setPlaybookFile(null);
+    setContractName('');
+    setPlaybookName('');
+    setClauses([]);
+    setResults([]);
+    setProgress(null);
+    setError(null);
+    setUseDemo(false);
+    setDemo(null);
+  }, []);
 
   return {
     contractFile,
@@ -167,6 +209,7 @@ export const useAnalysis = () => {
     exportDocx,
     loadDemo,
     resetDemo,
+    resetWorkspace,
     hydrateMatter,
   };
 };

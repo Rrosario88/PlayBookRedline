@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import pLimit from "p-limit";
 import { buildClausePrompt, SYSTEM_PROMPT } from "../prompts/systemPrompt.js";
 import type { Clause } from "./documentParser.js";
@@ -14,16 +14,40 @@ export interface AnalysisResult {
   suggestedRedline: string;
   playbookReference: string;
   index: number;
-  source: "claude" | "fallback";
+  source: "openrouter" | "fallback";
 }
 
-const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
+// OpenRouter client — falls back to disabled if no key set
+const openrouter = process.env.OPENROUTER_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseURL: "https://openrouter.ai/api/v1",
+      defaultHeaders: {
+        "HTTP-Referer": process.env.APP_URL ?? "https://playbookredline.app",
+        "X-Title": "PlayBookRedline",
+      },
+    })
+  : null;
+
+// Default model — can be overridden at runtime via OPENROUTER_MODEL env var
+// or via the admin API which writes to this module-level variable
+export let activeModel: string =
+  process.env.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-4";
+
+export const setActiveModel = (model: string) => {
+  activeModel = model;
+};
+
+export const getActiveModel = () => activeModel;
+
 const limit = pLimit(5);
 
 const normalizeJson = (raw: string): AnalysisResult => {
-  const parsed = JSON.parse(raw.trim());
+  // Strip markdown code fences if the model wrapped the JSON
+  const clean = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const parsed = JSON.parse(clean);
   if (!["green", "yellow", "red"].includes(parsed.riskLevel)) {
-    throw new Error("Invalid risk level returned by Claude.");
+    throw new Error("Invalid risk level returned by model.");
   }
 
   return {
@@ -35,7 +59,7 @@ const normalizeJson = (raw: string): AnalysisResult => {
     suggestedRedline: parsed.suggestedRedline ?? "",
     playbookReference: parsed.playbookReference ?? "",
     index: 0,
-    source: anthropic ? "claude" : "fallback",
+    source: "openrouter",
   };
 };
 
@@ -43,7 +67,7 @@ const heuristicAnalyze = (clause: Clause, playbookText: string): AnalysisResult 
   const text = clause.clauseText.toLowerCase();
   const playbook = playbookText.toLowerCase();
   let riskLevel: RiskLevel = "green";
-  let issue = "Clause appears aligned with the playbook’s preferred position.";
+  let issue = "Clause appears aligned with the playbook's preferred position.";
   let suggestedRedline = "";
   let playbookReference = "General alignment";
 
@@ -107,44 +131,39 @@ const heuristicAnalyze = (clause: Clause, playbookText: string): AnalysisResult 
 };
 
 export const analyzeClause = async (clause: Clause, playbookText: string): Promise<AnalysisResult> => {
-  if (!anthropic) {
+  if (!openrouter) {
     return heuristicAnalyze(clause, playbookText);
   }
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+    const response = await openrouter.chat.completions.create({
+      model: activeModel,
       max_tokens: 600,
-      system: SYSTEM_PROMPT,
       temperature: 0,
       messages: [
-        {
-          role: "user",
-          content: buildClausePrompt(clause.clauseTitle, clause.clauseText, playbookText),
-        },
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: buildClausePrompt(clause.clauseTitle, clause.clauseText, playbookText) },
       ],
     });
 
-    const textBlock = response.content.find((block) => block.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      throw new Error("Claude returned no text response.");
-    }
+    const text = response.choices[0]?.message?.content;
+    if (!text) throw new Error("Model returned no text response.");
 
-    const normalized = normalizeJson(textBlock.text);
+    const normalized = normalizeJson(text);
     return {
       ...normalized,
       id: clause.id,
       clauseTitle: normalized.clauseTitle || clause.clauseTitle,
       clauseText: clause.clauseText,
       index: clause.index,
-      source: "claude",
+      source: "openrouter",
     };
   } catch (error) {
     const fallback = heuristicAnalyze(clause, playbookText);
     return {
       ...fallback,
       riskLevel: fallback.riskLevel === "green" ? "yellow" : fallback.riskLevel,
-      issue: `${fallback.issue} Claude error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      issue: `${fallback.issue} Model error: ${error instanceof Error ? error.message : "Unknown error"}`,
     };
   }
 };

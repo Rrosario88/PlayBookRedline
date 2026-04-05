@@ -1,9 +1,15 @@
 import { Router } from "express";
 import { generateRedlinedDocx } from "../services/docxGenerator.js";
+import { attachUser, requireAuth } from "../middleware/auth.js";
+import { ensureCsrfCookie, requireCsrf } from "../middleware/csrf.js";
 import type { AnalysisResult } from "../services/claudeAnalyzer.js";
 import type { Clause } from "../services/documentParser.js";
 
 const router = Router();
+router.use(attachUser);
+router.use(ensureCsrfCookie);
+router.use(requireAuth);
+router.use(requireCsrf);
 
 const isValidClause = (value: Clause) =>
   typeof value?.id === "string" && typeof value?.clauseTitle === "string" && typeof value?.originalText === "string";

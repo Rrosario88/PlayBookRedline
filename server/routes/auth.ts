@@ -12,19 +12,59 @@ import {
   signAuthToken,
   verifyEmailToken,
 } from "../services/auth.js";
-import { pool } from "../services/db.js";
 import { attachUser, requireAuth, requireRole, type AuthenticatedRequest } from "../middleware/auth.js";
+import { ensureCsrfCookie, issueCsrfToken, requireCsrf } from "../middleware/csrf.js";
+import { pool } from "../services/db.js";
+import { getActiveModel, setActiveModel } from "../services/claudeAnalyzer.js";
+
+// Popular OpenRouter models available for contract analysis
+export const OPENROUTER_MODELS = [
+  { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4", provider: "Anthropic", tier: "Recommended" },
+  { id: "anthropic/claude-opus-4", label: "Claude Opus 4", provider: "Anthropic", tier: "Most capable" },
+  { id: "anthropic/claude-haiku-4", label: "Claude Haiku 4", provider: "Anthropic", tier: "Fastest" },
+  { id: "openai/gpt-4o", label: "GPT-4o", provider: "OpenAI", tier: "Recommended" },
+  { id: "openai/gpt-4o-mini", label: "GPT-4o Mini", provider: "OpenAI", tier: "Fastest" },
+  { id: "openai/o3", label: "o3", provider: "OpenAI", tier: "Most capable" },
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", provider: "Google", tier: "Most capable" },
+  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "Google", tier: "Fastest" },
+  { id: "meta-llama/llama-4-maverick", label: "Llama 4 Maverick", provider: "Meta", tier: "Open source" },
+  { id: "mistralai/mistral-large", label: "Mistral Large", provider: "Mistral", tier: "Open source" },
+  { id: "deepseek/deepseek-r1", label: "DeepSeek R1", provider: "DeepSeek", tier: "Open source" },
+];
 
 const router = Router();
 const baseCookieOptions = { httpOnly: true, sameSite: "lax" as const, maxAge: 7 * 24 * 60 * 60 * 1000, path: "/" };
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const validateEmail = (email?: string) => {
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized || !emailPattern.test(normalized) || normalized.length > 254) {
+    throw new Error("Enter a valid email address.");
+  }
+  return normalized;
+};
+const validatePassword = (password?: string) => {
+  if (!password || password.length < 10 || password.length > 128) {
+    throw new Error("Password must be between 10 and 128 characters.");
+  }
+  return password;
+};
 router.use(attachUser);
+router.use(ensureCsrfCookie);
 const cookieOptions = (req: any) => ({ ...baseCookieOptions, secure: req.secure || req.headers['x-forwarded-proto'] === 'https' });
+
+router.get("/auth/csrf", (req, res) => {
+  const csrfToken = res.locals.csrfToken || req.cookies?.playbookredline_csrf || issueCsrfToken(req, res);
+  res.json({ csrfToken });
+});
+
+router.use(requireCsrf);
 
 router.post("/auth/register", async (req, res) => {
   try {
     const { email, password, inviteToken } = req.body as { email?: string; password?: string; inviteToken?: string };
-    if (!email || !password || password.length < 10) throw new Error("Email and a password of at least 10 characters are required.");
-    const created = await createUser(email, password, inviteToken);
+    const normalizedEmail = validateEmail(email);
+    const safePassword = validatePassword(password);
+    const created = await createUser(normalizedEmail, safePassword, inviteToken);
     const token = signAuthToken(created.user);
     res.cookie(authCookieName, token, cookieOptions(req));
     res.status(201).json(created);
@@ -36,8 +76,9 @@ router.post("/auth/register", async (req, res) => {
 router.post("/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body as { email?: string; password?: string };
-    if (!email || !password) throw new Error("Email and password are required.");
-    const user = await authenticateUser(email, password);
+    const normalizedEmail = validateEmail(email);
+    const safePassword = validatePassword(password);
+    const user = await authenticateUser(normalizedEmail, safePassword);
     const token = signAuthToken(user);
     res.cookie(authCookieName, token, cookieOptions(req));
     res.json({ user });
@@ -58,17 +99,22 @@ router.get("/auth/me", requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 router.post("/auth/request-password-reset", async (req, res) => {
-  const { email } = req.body as { email?: string };
-  if (!email) return res.status(400).json({ message: "Email is required." });
-  const reset = await createPasswordResetToken(email);
-  res.json({ ok: true, message: "If the account exists, a reset link has been generated.", ...reset });
+  try {
+    const { email } = req.body as { email?: string };
+    const normalizedEmail = validateEmail(email);
+    const reset = await createPasswordResetToken(normalizedEmail);
+    res.json({ ok: true, message: "If the account exists, a reset link has been generated.", ...reset });
+  } catch (error) {
+    res.status(400).json({ message: error instanceof Error ? error.message : "Password reset request failed." });
+  }
 });
 
 router.post("/auth/reset-password", async (req, res) => {
   try {
     const { token, password } = req.body as { token?: string; password?: string };
-    if (!token || !password || password.length < 10) throw new Error("A valid token and a password of at least 10 characters are required.");
-    await resetPasswordWithToken(token, password);
+    if (!token) throw new Error("A valid reset token is required.");
+    const safePassword = validatePassword(password);
+    await resetPasswordWithToken(token, safePassword);
     res.json({ ok: true });
   } catch (error) {
     res.status(400).json({ message: error instanceof Error ? error.message : "Password reset failed." });
@@ -101,8 +147,8 @@ router.get("/admin/users", requireRole("admin"), async (_req, res) => {
 router.post("/admin/invites", requireRole("admin"), async (req: AuthenticatedRequest, res) => {
   try {
     const { email, role } = req.body as { email?: string; role?: "user" | "admin" };
-    if (!email) throw new Error("Email is required.");
-    const invite = await createInvite(email, role === "admin" ? "admin" : "user", req.user!.id);
+    const normalizedEmail = validateEmail(email);
+    const invite = await createInvite(normalizedEmail, role === "admin" ? "admin" : "user", req.user!.id);
     res.status(201).json(invite);
   } catch (error) {
     res.status(400).json({ message: error instanceof Error ? error.message : "Invite creation failed." });
@@ -123,6 +169,24 @@ router.get("/admin/matters", requireRole("admin"), async (_req, res) => {
 router.post("/admin/prune-matters", requireRole("admin"), async (_req, res) => {
   const result = await pool.query("DELETE FROM matters WHERE delete_after <= NOW() RETURNING id");
   res.json({ deleted: result.rowCount ?? 0 });
+});
+
+router.get("/admin/model", requireRole("admin"), (_req, res) => {
+  res.json({
+    activeModel: getActiveModel(),
+    models: OPENROUTER_MODELS,
+    hasOpenRouterKey: Boolean(process.env.OPENROUTER_API_KEY),
+  });
+});
+
+router.post("/admin/model", requireRole("admin"), (req, res) => {
+  const { model } = req.body as { model?: string };
+  if (!model || typeof model !== "string") {
+    res.status(400).json({ message: "model field is required." });
+    return;
+  }
+  setActiveModel(model);
+  res.json({ activeModel: getActiveModel() });
 });
 
 export default router;

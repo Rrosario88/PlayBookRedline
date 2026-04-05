@@ -7,6 +7,13 @@ playbookredline.187-124-249-117.sslip.io {
         X-Frame-Options "SAMEORIGIN"
         Referrer-Policy "strict-origin-when-cross-origin"
         Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        X-Robots-Tag "noindex, nofollow, noarchive, nosnippet"
+    }
+
+    @robots path /robots.txt
+    respond @robots 200 {
+        body "User-agent: *\nDisallow: /\n"
+        close
     }
 
     @api path /api/*
