@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.61.0",
+    "@anthropic-ai/sdk": "^0.87.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.8.0",
     "compression": "^1.8.1",
